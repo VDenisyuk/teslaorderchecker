@@ -15,6 +15,7 @@ try:
     reservation_number = config['reservation_number']
     apprisestr = config['apprisestr']
     wantnotification = config['notifications_enabled']
+    interval = config['interval']
 
 except Exception as e:
     # If the file is not found, print the message and exit
@@ -22,7 +23,7 @@ except Exception as e:
     sys.exit(1)
     
 # Check interval in seconds (10 minutes)
-interval = 600
+#interval = 600
 # Token expiry time (8 hours)
 token_expiry = datetime.now() + timedelta(hours=8)
 
@@ -115,7 +116,7 @@ def compare_data(old_data, new_data, parent_key=""):
 
 
 # Debug notification
-notify("test")
+#notify("test")
 
 # Set access token for the first time
 access_token, refresh_token = refresh_access_token()
