@@ -28,7 +28,7 @@ token_expiry = datetime.now() + timedelta(hours=8)
 
 headers = {
     "accept": "*/*",
-    "x-tesla-user-agent": "TeslaApp/4.28.2-2157",
+    "x-tesla-user-agent": "TeslaApp/4.50.1-3578",
     "charset": "utf-8",
     "cache-control": "no-cache",
     "accept-language": "en",
@@ -41,7 +41,7 @@ params = {
     "deviceLanguage": "en",
     "deviceCountry": "US",
     "referenceNumber": reservation_number,
-    "appVersion": "4.28.2-2157",
+    "appVersion": "4.50.1-3578",
 }
 
 
@@ -69,7 +69,7 @@ def refresh_access_token():
     return response.json()["access_token"], response.json()["refresh_token"]
 
 
-def fetch_data(acces_token):
+def fetch_data(access_token):
     headers["authorization"] = f"Bearer {access_token}"
     response = requests.get(
         "https://akamai-apigateway-vfx.tesla.com/tasks", params=params, headers=headers
@@ -99,7 +99,7 @@ def compare_data(old_data, new_data, parent_key=""):
     
     for key, value in old_data.items():
         full_key = f"{parent_key}.{key}" if parent_key else key
-        if key in new_data:
+        if (key != "ssn") and (key in new_data):
             if isinstance(value, dict) and isinstance(new_data[key], dict):
                 # Recursive call for nested dictionaries
                 compare_data(
@@ -107,7 +107,7 @@ def compare_data(old_data, new_data, parent_key=""):
                 )
             elif new_data[key] != value:
                 message = (
-                    f"'{full_key}': \nold value: '{value}' \nnew value: '{new_data[key]}'"
+                    f"`{full_key}`: \n <b>Old Value:</b> <s>'{value}'</s> \n<b>Updated Value:</b> \n> '{new_data[key]}'"
                 )
                 print(f"[!] Data Changed: \n{message}")
                 if wantnotification:
@@ -115,7 +115,7 @@ def compare_data(old_data, new_data, parent_key=""):
 
 
 # Debug notification
-# notify("test")
+notify("test")
 
 # Set access token for the first time
 access_token, refresh_token = refresh_access_token()
@@ -131,7 +131,7 @@ except FileNotFoundError:
     print(json.dumps(previous_data, indent=4))
 
 # uncomment if you want to print initial values
-print(json.dumps(previous_data, indent=4))
+# print(json.dumps(previous_data, indent=4))
 
 while True:
     try:
@@ -141,6 +141,7 @@ while True:
             token_expiry = datetime.now() + timedelta(hours=8)
             print("Token refreshed")
 
+        
         # Make the API request
         new_data = fetch_data(access_token)
         print(f"{datetime.now()} - Checking for differences")
