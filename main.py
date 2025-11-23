@@ -3,15 +3,63 @@ import time
 import json
 import sys
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+from auth import main as run_tesla_auth
 import apprise
 
+timezone='Europe/Berlin'
+
+HISTORY_TRANSLATIONS_IGNORED = {
+    "tasks.registration.orderDetails.vin",
+    "tasks.registration.regData.orderDetails.vin",
+    "tasks.finalPayment.data.vin",
+    "tasks.tradeIn.isMatched",
+    "tasks.registration.isMatched",
+    "tasks.registration.orderDetails.vehicleModelYear",
+    "state",
+    "strings",
+    "scheduling.card",
+    "scheduling.strings",
+    "tasks.carbonCredit.card",
+    "tasks.carbonCredit.strings.",
+    "tasks.finalPayment.card.",
+    "tasks.finalPayment.strings.",
+    "tasks.scheduling.card.",
+    "tasks.scheduling.strings.",
+    "tasks.scheduling.isDeliveryEstimatesEnabled",
+    "tasks.registration.orderDetails.isAvailableForMatch",
+    "tasks.finalPayment.data.isAvailableForMatch",
+    "tasks.finalPayment.data.deliveryReadinessDetail.",
+    "tasks.finalPayment.data.deliveryReadiness.",
+    "tasks.finalPayment.data.agreementDetails",
+    "tasks.finalPayment.data.vehicleId",
+    "tasks.deliveryAcceptance.gates",
+    "tasks.deliveryAcceptance.card.",
+    "tasks.deliveryAcceptance.strings.",
+    "tasks.deliveryDetails.regData.reggieRegistrationStatus",
+    "tasks.deliveryDetails.strings.",
+    "tasks.deliveryDetails.card.",
+    "tasks.registration.card.",
+    "tasks.registration.regData.reggieRegistrationStatus",
+    "tasks.registration.strings.",
+    "tasks.finalPayment.complete",
+    "tasks.finalPayment.data.finalPaymentStatus",
+    "tasks.scheduling.apptDateTimeAddressStr",
+    "tasks.scheduling.isInventoryOrMatched",
+    "tasks.finalPayment.data.hasFinalInvoice",
+    "tasks.finalPayment.data.hasActiveInvoice",
+    "tasks.finalPayment.data.selfSchedulingDetails.deliveryLocationId",
+    "tasks.finalPayment.data.selfSchedulingDetails.",
+    "tasks.financing.card.",
+    "tasks.financing.strings.",
+    "tasks.tradeIn.card.",
+    "tasks.tradeIn.strings."
+}
 
 # Load the config file
 try: 
     with open('config.json', 'r') as f:
         config = json.load(f)
-
-    refresh_token = config['refresh_token']
     reservation_number = config['reservation_number']
     apprisestr = config['apprisestr']
     wantnotification = config['notifications_enabled']
@@ -22,11 +70,6 @@ except Exception as e:
     print("config.json not found, please run 'cp config.json.sample config.json' and double check your variables")
     sys.exit(1)
     
-# Check interval in seconds (10 minutes)
-#interval = 600
-# Token expiry time (8 hours)
-token_expiry = datetime.now() + timedelta(hours=8)
-
 headers = {
     "accept": "*/*",
     "x-tesla-user-agent": "TeslaApp/4.50.1-3578",
@@ -44,30 +87,6 @@ params = {
     "referenceNumber": reservation_number,
     "appVersion": "4.50.1-3578",
 }
-
-
-def refresh_access_token():
-    payload = json.dumps(
-        {
-            "grant_type": "refresh_token",
-            "client_id": "ownerapi",
-            "refresh_token": refresh_token,
-            "scope": "openid email offline_access",
-        }
-    )
-    headers = {
-        "Content-Type": "application/json",
-    }
-
-    response = requests.request(
-        "POST", "https://auth.tesla.com/oauth2/v3/token", headers=headers, data=payload
-    )
-    if response.status_code != 200:
-        print(
-            f"[!] Something went wrong refreshing the access token, is the refresh token correct? {response.text}"
-        )
-    print(f"Succesfully refreshed token")
-    return response.json()["access_token"], response.json()["refresh_token"]
 
 
 def fetch_data(access_token):
@@ -92,14 +111,15 @@ def notify(message):
 
 # Save data to file
 def savedata(new_data):
-    with open('lastdata.txt', 'w') as file:
-                json.dump(new_data, file, indent=4)
+    with open('./data/lastdata.json', 'w') as file:
+        json.dump(new_data, file, indent=4)
 
 # Function to compare JSON data
 def compare_data(old_data, new_data, parent_key=""):
-    
     for key, value in old_data.items():
         full_key = f"{parent_key}.{key}" if parent_key else key
+        if full_key in HISTORY_TRANSLATIONS_IGNORED:
+            continue
         if (key != "ssn") and (key in new_data):
             if isinstance(value, dict) and isinstance(new_data[key], dict):
                 # Recursive call for nested dictionaries
@@ -114,15 +134,14 @@ def compare_data(old_data, new_data, parent_key=""):
                 if wantnotification:
                     notify(message)
 
-
 # Debug notification
-#notify("test")
+#notify("Tesla Order Update Script started...")
 
 # Set access token for the first time
-access_token, refresh_token = refresh_access_token()
-# Try to load initial data from lastdata.txt
+access_token = run_tesla_auth()
+# Try to load initial data from lastdata.json
 try:
-    with open('lastdata.txt', 'r') as file:
+    with open('./data/lastdata.json', 'r') as file:
         print("[i] Continuing from last session")
         previous_data = json.load(file)
 except FileNotFoundError:
@@ -136,21 +155,15 @@ except FileNotFoundError:
 
 while True:
     try:
-        # Check if the token is about to expire
-        if datetime.now() >= token_expiry - timedelta(minutes=20):
-            access_token, refresh_token = refresh_access_token()
-            token_expiry = datetime.now() + timedelta(hours=8)
-            print("Token refreshed")
-
-        
         # Make the API request
+        access_token = run_tesla_auth()
         new_data = fetch_data(access_token)
-        print(f"{datetime.now()} - Checking for differences")
+        print(f"{datetime.now(tz=ZoneInfo(timezone))} - Checking for differences")
         compare_data(previous_data, new_data)
         previous_data = new_data
 
-        # Overwrite lastdata.txt with new data
-        with open('lastdata.txt', 'w') as file:
+        # Overwrite lastdata.json with new data
+        with open('./data/lastdata.json', 'w') as file:
             json.dump(new_data, file, indent=4)
 
         # Sleep for a while before the next request
@@ -159,4 +172,4 @@ while True:
     except Exception as e:
         print(f"An error occurred: {e}")
         # Optional: delay before continuing
-        time.sleep(600)
+        time.sleep(120)

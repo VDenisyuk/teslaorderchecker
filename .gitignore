@@ -231,5 +231,6 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/python,venv,visualstudiocode,windows
-lastdata.txt
 config.json
+run.sh
+data
