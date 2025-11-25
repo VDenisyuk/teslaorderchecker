@@ -125,7 +125,7 @@ def _get_auth_code(code_challenge: str):
     if input("Proceed to open the login page? (y/n): ").lower() != 'y':
         print("Authentication cancelled.")
         sys.exit(0)
-    print(f"{auth_url}")
+    #print(f"{auth_url}")
     try:
         if not webbrowser.open(auth_url):
             print("No GUI detected. Open this URL manually:")
@@ -211,7 +211,12 @@ def main() -> str:
     else:
         token_response = _exchange_code_for_tokens(_get_auth_code(code_challenge), code_verifier)
         access_token = token_response['access_token']
-        if input("Would you like to save the tokens to a file in the current directory for use in future requests? (y/n): ").lower() == 'y':
-            _save_tokens_to_file(token_response)
+        _save_tokens_to_file(token_response)
 
     return access_token
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:  # noqa: BLE001 - catch-all for user guidance
+        print(f"\n[ERROR] {e}\n")

@@ -1,3 +1,4 @@
+import os
 import requests
 import time
 import json
@@ -128,7 +129,7 @@ def compare_data(old_data, new_data, parent_key=""):
                 )
             elif new_data[key] != value:
                 message = (
-                    f"`{full_key}`: \n <b>Old Value:</b> <s>'{value}'</s> \n<b>Updated Value:</b> \n> '{new_data[key]}'"
+                    f"`{full_key}`: \n<b>Old Value:</b> <s>{value}</s> \n<b>Updated Value:</b> {new_data[key]}"
                 )
                 print(f"[!] Data Changed: \n{message}")
                 if wantnotification:
@@ -137,6 +138,9 @@ def compare_data(old_data, new_data, parent_key=""):
 # Debug notification
 #notify("Tesla Order Update Script started...")
 
+if not os.path.isfile('/usr/src/app/data/tesla_tokens.json'):
+    print("[!] No auth token found, please run python3 auth.py")
+    exit()
 # Set access token for the first time
 access_token = run_tesla_auth()
 # Try to load initial data from lastdata.json
