@@ -5,6 +5,52 @@ import sys
 from datetime import datetime, timedelta
 import apprise
 
+HISTORY_TRANSLATIONS_IGNORED = {
+    "tasks.registration.orderDetails.vin",
+    "tasks.registration.regData.orderDetails.vin",
+    "tasks.finalPayment.data.vin",
+    "tasks.tradeIn.isMatched",
+    "tasks.registration.isMatched",
+    "tasks.registration.orderDetails.vehicleModelYear",
+    "state",
+    "strings",
+    "scheduling.card",
+    "scheduling.strings",
+    "tasks.carbonCredit.card",
+    "tasks.carbonCredit.strings.",
+    "tasks.finalPayment.card.",
+    "tasks.finalPayment.strings.",
+    "tasks.scheduling.card.",
+    "tasks.scheduling.strings.",
+    "tasks.scheduling.isDeliveryEstimatesEnabled",
+    "tasks.registration.orderDetails.isAvailableForMatch",
+    "tasks.finalPayment.data.isAvailableForMatch",
+    "tasks.finalPayment.data.deliveryReadinessDetail.",
+    "tasks.finalPayment.data.deliveryReadiness.",
+    "tasks.finalPayment.data.agreementDetails",
+    "tasks.finalPayment.data.vehicleId",
+    "tasks.deliveryAcceptance.gates",
+    "tasks.deliveryAcceptance.card.",
+    "tasks.deliveryAcceptance.strings.",
+    "tasks.deliveryDetails.regData.reggieRegistrationStatus",
+    "tasks.deliveryDetails.strings.",
+    "tasks.deliveryDetails.card.",
+    "tasks.registration.card.",
+    "tasks.registration.regData.reggieRegistrationStatus",
+    "tasks.registration.strings.",
+    "tasks.finalPayment.complete",
+    "tasks.finalPayment.data.finalPaymentStatus",
+    "tasks.scheduling.apptDateTimeAddressStr",
+    "tasks.scheduling.isInventoryOrMatched",
+    "tasks.finalPayment.data.hasFinalInvoice",
+    "tasks.finalPayment.data.hasActiveInvoice",
+    "tasks.finalPayment.data.selfSchedulingDetails.deliveryLocationId",
+    "tasks.finalPayment.data.selfSchedulingDetails.",
+    "tasks.financing.card.",
+    "tasks.financing.strings.",
+    "tasks.tradeIn.card.",
+    "tasks.tradeIn.strings."
+}
 
 # Load the config file
 try: 
@@ -92,7 +138,7 @@ def notify(message):
 
 # Save data to file
 def savedata(new_data):
-    with open('lastdata.txt', 'w') as file:
+    with open('lastdata.json', 'w') as file:
                 json.dump(new_data, file, indent=4)
 
 # Function to compare JSON data
@@ -100,6 +146,8 @@ def compare_data(old_data, new_data, parent_key=""):
     
     for key, value in old_data.items():
         full_key = f"{parent_key}.{key}" if parent_key else key
+        if full_key in HISTORY_TRANSLATIONS_IGNORED:
+            continue
         if (key != "ssn") and (key in new_data):
             if isinstance(value, dict) and isinstance(new_data[key], dict):
                 # Recursive call for nested dictionaries
@@ -120,9 +168,9 @@ def compare_data(old_data, new_data, parent_key=""):
 
 # Set access token for the first time
 access_token, refresh_token = refresh_access_token()
-# Try to load initial data from lastdata.txt
+# Try to load initial data from lastdata.json
 try:
-    with open('lastdata.txt', 'r') as file:
+    with open('lastdata.json', 'r') as file:
         print("[i] Continuing from last session")
         previous_data = json.load(file)
 except FileNotFoundError:
@@ -149,8 +197,8 @@ while True:
         compare_data(previous_data, new_data)
         previous_data = new_data
 
-        # Overwrite lastdata.txt with new data
-        with open('lastdata.txt', 'w') as file:
+        # Overwrite lastdata.json with new data
+        with open('lastdata.json', 'w') as file:
             json.dump(new_data, file, indent=4)
 
         # Sleep for a while before the next request
